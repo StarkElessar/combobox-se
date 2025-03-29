@@ -1,3 +1,4 @@
+import chevronIcon from '../../public/chevron.svg';
 import { ComboboxState, type State, type DataItem, type Subscriber } from './combobox-state';
 
 export type EventsComboboxSE = 'init' | 'dataBound' | 'open' | 'close';
@@ -101,7 +102,7 @@ export class ComboboxSE {
 
 		this.#trigger.classList.add(triggerClass);
 		this.#trigger.type = 'button';
-		this.#trigger.innerHTML = `<svg><use href="/public/chevron.svg#chevron-down"></use></svg>`;
+		this.#trigger.innerHTML = `<img src="${chevronIcon}" width="12" height="12" alt="chevron icon">`;
 		this.#trigger.addEventListener('click', this.#toggleVisible);
 
 		this.#inputWrapper.classList.add(inputWrapperClass);
