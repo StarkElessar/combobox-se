@@ -1,24 +1,15 @@
-import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.ts'
+import { ComboboxSE } from './libs/combobox-se';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://www.typescriptlang.org/" target="_blank">
-      <img src="${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
-    </a>
-    <h1>Vite + TypeScript</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite and TypeScript logos to learn more
-    </p>
-  </div>
-`
-
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+document.addEventListener('DOMContentLoaded', () => {
+	console.log('DOMContentLoaded');
+	new ComboboxSE('#type', {
+		onInit(props) {
+			console.log('onInit', props);
+		},
+		dataItems: [...Array(20).fill(null)].map((_, index) => ({
+			id: index + 1,
+			text: `Item ${index + 1}`,
+			value: `item_${index + 1}`
+		}))
+	});
+});
