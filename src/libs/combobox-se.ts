@@ -11,10 +11,13 @@ interface Options {
 	inputWrapperClass?: string;
 	triggerClass?: string;
 	dropdownClass?: string;
+	dropdownVisibleClass?: string;
 	listClass?: string;
 	itemClass?: string;
 	selectedItemClass?: string;
 	placeholder?: string;
+	emptyPlaceholder?: string;
+	emptyItemClass?: string;
 	onInit?: (props: { sender: ComboboxSE, input: HTMLInputElement }) => void;
 }
 
@@ -24,15 +27,18 @@ const DEFAULT_OPTIONS: Required<Omit<Options, 'dataItems'>> = {
 	inputWrapperClass: 'combobox-se-input-wrapper',
 	triggerClass: 'combobox-se-trigger',
 	dropdownClass: 'combobox-se-dropdown',
+	dropdownVisibleClass: 'combobox-se-dropdown-visible',
 	listClass: 'combobox-se-list',
 	itemClass: 'combobox-se-item',
 	selectedItemClass: 'combobox-se-selected',
+	emptyItemClass: 'combobox-se-empty-item',
 	placeholder: 'Введите значение',
+	emptyPlaceholder: 'Нет элементов для отображения',
 	onInit: () => {}
 };
 
 const INITIAL_STATE: State = {
-	isOpen: false,
+	isOpen: null,
 	selectedItem: null
 };
 
@@ -69,8 +75,6 @@ export class ComboboxSE {
 		this.#state.subscribe('selectedItem', this.#handleSelectedItemChange);
 
 		this.#init(this.#input);
-		this.#updateUI();
-
 		this.#options.onInit?.({ sender: this, input: this.#input });
 		ComboboxSE.#instances.set(this.#input.id, this);
 	}
@@ -109,16 +113,19 @@ export class ComboboxSE {
 
 		this.#wrapper.append(this.#inputWrapper, this.#dropdown);
 		this.#renderList(this.#options.dataItems);
+		this.#state.set('isOpen', false);
 	}
 
 	#handleIsOpenChange: Subscriber<'isOpen'> = (isOpen) => {
+		const { dropdownVisibleClass } = this.#options;
+
 		if (isOpen) {
-			this.#dropdown.style.display = 'block';
+			this.#dropdown.classList.add(dropdownVisibleClass);
 			document.addEventListener('click', this.#handleDocumentClick);
 			this.#scrollToSelectedItem();
 		}
 		else {
-			this.#dropdown.style.display = 'none';
+			this.#dropdown.classList.remove(dropdownVisibleClass);
 			document.removeEventListener('click', this.#handleDocumentClick);
 		}
 	};
@@ -129,35 +136,33 @@ export class ComboboxSE {
 	};
 
 	#renderList(items: DataItem[]) {
-		const { itemClass, selectedItemClass } = this.#options;
+		const { itemClass, selectedItemClass, emptyPlaceholder, emptyItemClass } = this.#options;
 		const selectedId = this.#state.get('selectedItem')?.id;
+		const fragment = document.createDocumentFragment();
 
-		// Используем дифф для минимального обновления DOM
+		this.#list.innerHTML = '';
+
+		if (items.length === 0) {
+			const li = document.createElement('li');
+			li.classList.add(emptyItemClass);
+			li.textContent = emptyPlaceholder;
+			li.dataset.placeholder = 'true';
+			this.#list.appendChild(li);
+			return;
+		}
+
 		items.forEach(item => {
-			const existingItem = this.#list.querySelector(`[data-id="${item.id}"]`);
-
-			if (existingItem) {
-				// Обновляем класс только если изменился выбор
-				existingItem.classList.toggle(selectedItemClass, item.id === selectedId);
-				return;
-			}
-
 			const li = document.createElement('li');
 			li.classList.add(itemClass);
 			li.dataset.id = String(item.id);
 			li.dataset.value = item.value;
 			li.textContent = item.text;
-			li.addEventListener('click', () => this.#handleItemClick(item.id));
-			this.#list.appendChild(li);
+			li.classList.toggle(selectedItemClass, item.id === selectedId);
+			li.addEventListener('click', () => this.#handleItemClick(item));
+			fragment.appendChild(li);
 		});
 
-		// Удаляем несуществующие элементы
-		Array.from(this.#list.children).forEach(child => {
-			const id = parseInt(child.getAttribute('data-id') || '');
-			if (!items.some(item => item.id === id)) {
-				child.remove();
-			}
-		});
+		this.#list.appendChild(fragment);
 	}
 
 	#scrollToSelectedItem = () => {
@@ -192,47 +197,15 @@ export class ComboboxSE {
 		this.#state.set('isOpen', !isOpen);
 	};
 
-	#updateUI = () => {
-		console.log('#updateUI');
-		const isOpen = this.#state.get('isOpen');
-
-		if (isOpen) {
-			this.#dropdown.style.display = 'block';
-			document.addEventListener('click', this.#handleDocumentClick);
-			(this.#list.childElementCount !== this.#options.dataItems.length) && (
-				this.#renderList(this.#options.dataItems)
-			);
-			this.#scrollToSelectedItem();
-		}
-		else {
-			this.#dropdown.style.display = 'none';
-			document.removeEventListener('click', this.#handleDocumentClick);
-		}
-
-		const selectedItem = this.#state.get('selectedItem');
-		this.#setInputValue(selectedItem?.text);
-
-	};
-
 	#handleDocumentClick = ({ target }: MouseEvent) => {
 		if (target instanceof Node && !this.#wrapper.contains(target)) {
 			this.#state.set('isOpen', false);
-			document.removeEventListener('click', this.#handleDocumentClick);
 		}
 	};
 
-	#handleItemClick = (id: number) => {
-		console.log('#handleItemClick');
-		const { dataItems, selectedItemClass } = this.#options;
-		const currentItem = dataItems.find(item => item.id === id);
-
-		if (currentItem) {
-			this.#state.set('selectedItem', currentItem);
-			this.#state.set('isOpen', false);
-			requestAnimationFrame(() => {
-				this.#list.querySelector(selectedItemClass)?.classList.remove(selectedItemClass);
-			});
-		}
+	#handleItemClick = (selectedItem: DataItem) => {
+		this.#state.set('selectedItem', selectedItem);
+		this.#state.set('isOpen', false);
 	};
 
 	#setInputValue(value?: string) {
