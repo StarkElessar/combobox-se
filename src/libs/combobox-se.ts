@@ -101,7 +101,7 @@ export class ComboboxSE {
 
 		this.#trigger.classList.add(triggerClass);
 		this.#trigger.type = 'button';
-		this.#trigger.innerHTML = `<svg><use href="/chevron.svg#chevron-down"></use></svg>`;
+		this.#trigger.innerHTML = `<svg><use href="/public/chevron.svg#chevron-down"></use></svg>`;
 		this.#trigger.addEventListener('click', this.#toggleVisible);
 
 		this.#inputWrapper.classList.add(inputWrapperClass);
