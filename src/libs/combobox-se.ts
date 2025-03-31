@@ -1,42 +1,8 @@
-import chevronIcon from '../../public/chevron.svg';
-import { ComboboxState, type State, type DataItem, type Subscriber } from './combobox-state';
-
-export type EventsComboboxSE = 'init' | 'dataBound' | 'open' | 'close';
-
-type Selector = HTMLInputElement | string;
-
-interface Options {
-	dataItems: DataItem[];
-	wrapperClass?: string;
-	inputClass?: string;
-	inputWrapperClass?: string;
-	triggerClass?: string;
-	dropdownClass?: string;
-	dropdownVisibleClass?: string;
-	listClass?: string;
-	itemClass?: string;
-	selectedItemClass?: string;
-	placeholder?: string;
-	emptyPlaceholder?: string;
-	emptyItemClass?: string;
-	onInit?: (props: { sender: ComboboxSE, input: HTMLInputElement }) => void;
-}
-
-const DEFAULT_OPTIONS: Required<Omit<Options, 'dataItems'>> = {
-	wrapperClass: 'combobox-se-wrapper',
-	inputClass: 'combobox-se-input',
-	inputWrapperClass: 'combobox-se-input-wrapper',
-	triggerClass: 'combobox-se-trigger',
-	dropdownClass: 'combobox-se-dropdown',
-	dropdownVisibleClass: 'combobox-se-dropdown-visible',
-	listClass: 'combobox-se-list',
-	itemClass: 'combobox-se-item',
-	selectedItemClass: 'combobox-se-selected',
-	emptyItemClass: 'combobox-se-empty-item',
-	placeholder: 'Введите значение',
-	emptyPlaceholder: 'Нет элементов для отображения',
-	onInit: () => {}
-};
+import chevronIcon from '../assets/chevron.svg';
+import { ComboboxState } from './combobox-state';
+import type { State, DataItem, Subscriber } from './combobox-state.types';
+import type { Options, Subscribers, Selector, ComboboxSubscriber, EventKey, PublicEvents } from './combobox-se.types';
+import { DEFAULT_OPTIONS } from './default-options';
 
 const INITIAL_STATE: State = {
 	isOpen: null,
@@ -48,10 +14,11 @@ export class ComboboxSE {
 	readonly #input: HTMLInputElement | null;
 	readonly #wrapper = document.createElement('span');
 	readonly #inputWrapper = document.createElement('span');
-	readonly #trigger = document.createElement('button');
+	readonly #triggerButton = document.createElement('button');
 	readonly #dropdown = document.createElement('div');
 	readonly #list = document.createElement('ul');
 	readonly #state: ComboboxState;
+	#subscribers: Subscribers = {};
 	static #instances = new Map<string, ComboboxSE>();
 
 	static get(id: string): ComboboxSE | null {
@@ -100,13 +67,13 @@ export class ComboboxSE {
 		input.addEventListener('click', () => this.#state.set('isOpen', true));
 		input.parentNode?.insertBefore(this.#wrapper, input);
 
-		this.#trigger.classList.add(triggerClass);
-		this.#trigger.type = 'button';
-		this.#trigger.innerHTML = `<img src="${chevronIcon}" width="12" height="12" alt="chevron icon">`;
-		this.#trigger.addEventListener('click', this.#toggleVisible);
+		this.#triggerButton.classList.add(triggerClass);
+		this.#triggerButton.type = 'button';
+		this.#triggerButton.innerHTML = `<img src="${chevronIcon}" width="12" height="12" alt="chevron icon">`;
+		this.#triggerButton.addEventListener('click', this.#toggleVisible);
 
 		this.#inputWrapper.classList.add(inputWrapperClass);
-		this.#inputWrapper.append(input, this.#trigger);
+		this.#inputWrapper.append(input, this.#triggerButton);
 		this.#list.classList.add(listClass);
 
 		this.#dropdown.classList.add(dropdownClass);
@@ -124,16 +91,21 @@ export class ComboboxSE {
 			this.#dropdown.classList.add(dropdownVisibleClass);
 			document.addEventListener('click', this.#handleDocumentClick);
 			this.#scrollToSelectedItem();
+			this.#trigger('open', { sender: this, isOpen: true });
 		}
 		else {
 			this.#dropdown.classList.remove(dropdownVisibleClass);
 			document.removeEventListener('click', this.#handleDocumentClick);
+			this.#trigger('close', { sender: this, isOpen: false });
 		}
 	};
 
 	#handleSelectedItemChange: Subscriber<'selectedItem'> = (data) => {
-		this.#setInputValue(data?.text);
-		this.#renderList(this.#options.dataItems);
+		if (data) {
+			this.#setInputValue(data.text);
+			this.#renderList(this.#options.dataItems);
+			this.#trigger('change', { sender: this, dataItem: data });
+		}
 	};
 
 	#renderList(items: DataItem[]) {
@@ -213,5 +185,14 @@ export class ComboboxSE {
 		(this.#input && value) && (
 			this.#input.value = value
 		);
+	}
+
+	bind<K extends EventKey>(event: K, callback: ComboboxSubscriber<K>) {
+		this.#subscribers[event] ??= [];
+		this.#subscribers[event]?.push(callback);
+	}
+
+	#trigger<K extends EventKey>(event: K, data: PublicEvents[K]) {
+		this.#subscribers[event]?.forEach(subscriber => subscriber(data));
 	}
 }
